@@ -3,33 +3,63 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
-	"github.com/HDIOES/anime-sheduler/dao"
+	"github.com/HDIOES/anime-app/dao"
 	"github.com/nats-io/nats.go"
 )
 
 //InitEventHandler struct
 type InitEventHandler struct {
 	db             *sql.DB
+	adao           *AnimeDAO
+	sdao           *SubscriptionDAO
 	settings       *Settings
 	natsConnection *nats.Conn
-	client         *http.Client
 }
 
 func (ieh *InitEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if response, resErr := ieh.client.Get(ieh.settings.ShikimoriSheduleURL); resErr != nil {
-		log.Println(resErr)
-	} else {
-		sheduleItems := make([]SheduleItem, 50)
-		if decodeErr := json.NewDecoder(response.Body).Decode(&sheduleItems); decodeErr != nil {
-			log.Println(decodeErr)
-		} else {
-
+	animeDtos, userDtos, err := ieh.sdao.GetSubscriptions()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	countOfNotifications := len(animeDtos)
+	notifications := make([]Notification, 0, countOfNotifications)
+	for i := 0; i < countOfNotifications; i++ {
+		telegramID, parseErr := strconv.ParseInt(userDtos[i].ExternalID, 10, 64)
+		if parseErr != nil {
+			log.Println(parseErr)
+			return
+		}
+		notification := Notification{
+			TelegramID: telegramID,
+			Type:       "notification",
+			Text:       fmt.Sprintf("Аниме под названием %s вышло сейчас в эфир. Не пропустите!", animeDtos[i].EngName),
+		}
+		notifications = append(notifications, notification)
+	}
+	for _, notification := range notifications {
+		if sendNotificationErr := ieh.sendNotification(notification); sendNotificationErr != nil {
+			log.Println(sendNotificationErr)
+			return
 		}
 	}
+}
+
+func (ieh *InitEventHandler) sendNotification(notification Notification) error {
+	data, dataErr := json.Marshal(notification)
+	if dataErr != nil {
+		return dataErr
+	}
+	if publishErr := ieh.natsConnection.Publish(ieh.settings.NatsSubject, data); publishErr != nil {
+		return publishErr
+	}
+	return nil
 }
 
 //SheduleItem struct
@@ -83,9 +113,30 @@ func (sts *ShikimoriTime) toDateValue() *string {
 type UpdateSheduleHandler struct {
 	db       *sql.DB
 	settings *Settings
-	adao     *dao.AnimeDAO
+	adao     *AnimeDAO
+	client   *http.Client
 }
 
 func (ush *UpdateSheduleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if response, resErr := ush.client.Get(ush.settings.ShikimoriSheduleURL); resErr != nil {
+		log.Println(resErr)
+	} else {
+		sheduleItems := make([]SheduleItem, 50)
+		if decodeErr := json.NewDecoder(response.Body).Decode(&sheduleItems); decodeErr != nil {
+			log.Println(decodeErr)
+		} else {
+			if updateSheduleErr := ush.adao.UpdateAnimes(sheduleItems); updateSheduleErr != nil {
+				log.Println(updateSheduleErr)
+			}
+		}
+	}
+}
 
+//Notification struct
+type Notification struct {
+	TelegramID int64          `json:"telegramId"`
+	Type       string         `json:"type"`
+	Text       string         `json:"text"`
+	Animes     []dao.AnimeDTO `json:"animes"`
+	WebhookURL string         `json:"webhookUrl"`
 }
