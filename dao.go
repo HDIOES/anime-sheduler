@@ -2,8 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"database/sql/driver"
-	"fmt"
 	"strconv"
 	"time"
 )
@@ -52,7 +50,7 @@ func handleErr(tx *sql.Tx, err error) error {
 
 func (adao *AnimeDAO) insertNewAnimes(tx *sql.Tx, items []SheduleItem) error {
 	//prepare findByExternalStmt
-	findByExternalStmt, err := tx.Prepare("SELECT (ID, EXTERNALID, RUSNAME, ENGNAME, IMAGEURL, NEXT_EPISODE_AT) FROM ANIMES WHERE EXTERNALID = $1")
+	findByExternalStmt, err := tx.Prepare("SELECT ID, EXTERNALID, RUSNAME, ENGNAME, IMAGEURL, NEXT_EPISODE_AT FROM ANIMES WHERE EXTERNALID = $1")
 	if err != nil {
 		return err
 	}
@@ -131,7 +129,7 @@ func (adao *AnimeDAO) delete(stmt *sql.Stmt, id int64) error {
 }
 
 func (adao *AnimeDAO) allAnimes(tx *sql.Tx) ([]AnimeDTO, error) {
-	result, resErr := tx.Query("SELECT (ID, EXTERNALID, RUSNAME, ENGNAME, IMAGEURL, NEXT_EPISODE_AT) FROM ANIMES")
+	result, resErr := tx.Query("SELECT ID, EXTERNALID, RUSNAME, ENGNAME, IMAGEURL, NEXT_EPISODE_AT FROM ANIMES")
 	if resErr != nil {
 		return nil, resErr
 	}
@@ -208,11 +206,14 @@ func (adao *AnimeDAO) findByExternalID(stmt *sql.Stmt, externalID string) (*Anim
 		return nil, err
 	}
 	defer rows.Close()
-	anime, err := adao.scanAsAnime(rows)
-	if err != nil {
-		return nil, err
+	if rows.Next() {
+		anime, err := adao.scanAsAnime(rows)
+		if err != nil {
+			return nil, err
+		}
+		return anime, nil
 	}
-	return anime, nil
+	return nil, nil
 }
 
 //SubscriptionDAO struct
@@ -228,7 +229,7 @@ type SubcriptionDTO struct {
 
 //GetSubscriptions func
 func (sdao *SubscriptionDAO) GetSubscriptions() ([]AnimeDTO, []UserDTO, error) {
-	rows, err := sdao.Db.Query("SELECT (A.ID, A.EXTERNALID, A.RUSNAME, A.ENGNAME, A.IMAGEURL, A.NEXT_EPISODE_AT, TU.ID, TU.TELEGRAM_USER_ID, TU.TELEGRAM_USERNAME) FROM ANIMES A JOIN SUBCRIPTIONS S ON (A.ID = S.ANIME_ID AND A.NEXT_EPISODE_AT <= $1) " +
+	rows, err := sdao.Db.Query("SELECT A.ID, A.EXTERNALID, A.RUSNAME, A.ENGNAME, A.IMAGEURL, A.NEXT_EPISODE_AT, TU.ID, TU.TELEGRAM_USER_ID, TU.TELEGRAM_USERNAME FROM ANIMES A JOIN SUBCRIPTIONS S ON (A.ID = S.ANIME_ID AND A.NEXT_EPISODE_AT <= $1) " +
 		" JOIN TELEGRAM_USERS TU ON (TU.ID = S.TELEGRAM_USER_ID)")
 	if err != nil {
 		return nil, nil, err
@@ -314,33 +315,6 @@ func (pt *PqTime) Scan(value interface{}) error {
 		pt.Valid = false
 		return nil
 	}
-	switch v := value.(type) {
-	case string:
-		time, err := time.Parse(time.RFC3339, v)
-		if err != nil {
-			pt.Valid = false
-			return err
-		}
-		pt.Valid = true
-		pt.Time = time
-	case []byte:
-		time, err := time.Parse(time.RFC3339, string(v))
-		if err != nil {
-			pt.Valid = false
-			return err
-		}
-		pt.Valid = true
-		pt.Time = time
-	default:
-		return fmt.Errorf("can't read %T into myTime", v)
-	}
+	pt.Time = value.(time.Time)
 	return nil
-}
-
-//Value func
-func (pt PqTime) Value() (driver.Value, error) {
-	if !pt.Valid {
-		return nil, nil
-	}
-	return pt.Time, nil
 }

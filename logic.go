@@ -65,7 +65,6 @@ func (ieh *InitEventHandler) sendNotification(notification Notification) error {
 type SheduleItem struct {
 	NextEpisode   int64         `json:"next_episode"`
 	NextEpisodeAt ShikimoriTime `json:"next_episode_at"`
-	Duration      int64         `json:"duration"`
 	Anime         Anime         `json:"anime"`
 }
 
@@ -110,7 +109,6 @@ func (sts *ShikimoriTime) toDateValue() *string {
 
 //UpdateSheduleHandler struct
 type UpdateSheduleHandler struct {
-	db       *sql.DB
 	settings *Settings
 	adao     *AnimeDAO
 	client   *http.Client
@@ -120,7 +118,7 @@ func (ush *UpdateSheduleHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	if response, resErr := ush.client.Get(ush.settings.ShikimoriSheduleURL); resErr != nil {
 		log.Println(resErr)
 	} else {
-		sheduleItems := make([]SheduleItem, 50)
+		sheduleItems := make([]SheduleItem, 0)
 		if decodeErr := json.NewDecoder(response.Body).Decode(&sheduleItems); decodeErr != nil {
 			log.Println(decodeErr)
 		} else {

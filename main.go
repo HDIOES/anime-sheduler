@@ -52,10 +52,13 @@ func main() {
 		}
 		return db, natsConnection, &AnimeDAO{Db: db}, &SubscriptionDAO{Db: db}
 	})
-	container.Invoke(func(db *sql.DB, settings *Settings, natsConnection *nats.Conn, adao *AnimeDAO, sdao *SubscriptionDAO) {
+	container.Invoke(func(db *sql.DB, settings *Settings, natsConnection *nats.Conn) {
 		mux := http.NewServeMux()
+		adao := AnimeDAO{
+			Db: db,
+		}
 		mux.Handle("/updateShedule", &UpdateSheduleHandler{
-			db:       db,
+			adao:     &adao,
 			settings: settings,
 			client:   &http.Client{},
 		})
