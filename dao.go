@@ -79,6 +79,7 @@ func (adao *AnimeDAO) insertNewAnimes(tx *sql.Tx, items []SheduleItem) error {
 			if updateErr := adao.updateNextEpisodeAt(updateNextEpisodeAtStmt, animeDTO.ID, animeDTO.NextEpisodeAt); updateErr != nil {
 				return updateErr
 			}
+			continue
 		}
 		//insert new anime
 		if createErr := adao.create(createStmt,
@@ -231,8 +232,7 @@ type SubcriptionDTO struct {
 
 //GetSubscriptions func
 func (sdao *SubscriptionDAO) GetSubscriptions() ([]AnimeDTO, []UserDTO, error) {
-	rows, err := sdao.Db.Query("SELECT A.ID, A.EXTERNALID, A.RUSNAME, A.ENGNAME, A.IMAGEURL, A.NEXT_EPISODE_AT, TU.ID, TU.TELEGRAM_USER_ID, TU.TELEGRAM_USERNAME FROM ANIMES A JOIN SUBCRIPTIONS S ON (A.ID = S.ANIME_ID AND A.NEXT_EPISODE_AT <= $1) " +
-		" JOIN TELEGRAM_USERS TU ON (TU.ID = S.TELEGRAM_USER_ID)")
+	rows, err := sdao.Db.Query("SELECT A.ID, A.EXTERNALID, A.RUSNAME, A.ENGNAME, A.IMAGEURL, A.NEXT_EPISODE_AT, TU.ID, TU.TELEGRAM_USER_ID, TU.TELEGRAM_USERNAME FROM ANIMES A JOIN SUBSCRIPTIONS S ON (A.ID = S.ANIME_ID AND A.NEXT_EPISODE_AT <= $1) JOIN TELEGRAM_USERS TU ON (TU.ID = S.TELEGRAM_USER_ID)", time.Now())
 	if err != nil {
 		return nil, nil, err
 	}

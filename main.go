@@ -57,13 +57,16 @@ func main() {
 		adao := AnimeDAO{
 			Db: db,
 		}
+		sdao := SubscriptionDAO{
+			Db: db,
+		}
 		mux.Handle("/updateShedule", &UpdateSheduleHandler{
 			adao:     &adao,
 			settings: settings,
 			client:   &http.Client{},
 		})
 		mux.Handle("/initEvent", &InitEventHandler{
-			db:             db,
+			sdao:           &sdao,
 			settings:       settings,
 			natsConnection: natsConnection,
 		})
