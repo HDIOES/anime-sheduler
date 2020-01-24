@@ -31,7 +31,7 @@ func main() {
 			}
 		}
 	})
-	container.Provide(func(settings *Settings) (*sql.DB, *nats.Conn, *AnimeDAO, *UserDAO, *SubscriptionDAO) {
+	container.Provide(func(settings *Settings) (*sql.DB, *nats.Conn, *AnimeDAO, *SubscriptionDAO) {
 		db, err := sql.Open("postgres", settings.DatabaseURL)
 		if err != nil {
 			panic(err)
@@ -50,9 +50,9 @@ func main() {
 		if ncErr != nil {
 			panic(ncErr)
 		}
-		return db, natsConnection, &AnimeDAO{Db: db}, &UserDAO{Db: db}, &SubscriptionDAO{Db: db}
+		return db, natsConnection, &AnimeDAO{Db: db}, &SubscriptionDAO{Db: db}
 	})
-	container.Invoke(func(db *sql.DB, settings *Settings, natsConnection *nats.Conn, adao *AnimeDAO, udao *UserDAO, sdao *SubscriptionDAO) {
+	container.Invoke(func(db *sql.DB, settings *Settings, natsConnection *nats.Conn, adao *AnimeDAO, sdao *SubscriptionDAO) {
 		mux := http.NewServeMux()
 		mux.Handle("/updateShedule", &UpdateSheduleHandler{
 			db:       db,
