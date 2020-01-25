@@ -131,9 +131,7 @@ func (ush *UpdateSheduleHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 
 //Notification struct
 type Notification struct {
-	TelegramID int64      `json:"telegramId"`
-	Type       string     `json:"type"`
-	Text       string     `json:"text"`
-	Animes     []AnimeDTO `json:"animes"`
-	WebhookURL string     `json:"webhookUrl"`
+	TelegramID int64  `json:"telegramId"`
+	Type       string `json:"type"`
+	Text       string `json:"text"`
 }
