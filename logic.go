@@ -22,7 +22,7 @@ type InitEventHandler struct {
 }
 
 func (ieh *InitEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	animeDtos, userDtos, err := ieh.sdao.GetSubscriptions()
+	animeDtos, userDtos, err := ieh.sdao.GetSubscriptionsAndMarkAnimesAsNotified()
 	if err != nil {
 		log.Println(err)
 		return

@@ -13,12 +13,14 @@ type AnimeDAO struct {
 
 //AnimeDTO struct
 type AnimeDTO struct {
-	ID            int64
-	ExternalID    string
-	RusName       string
-	EngName       string
-	ImageURL      string
-	NextEpisodeAt time.Time
+	ID               int64
+	ExternalID       string
+	RusName          string
+	EngName          string
+	ImageURL         string
+	NextEpisodeAt    time.Time
+	NextEpizode      int64
+	NotificationSent bool
 }
 
 //UpdateAnimes func
@@ -50,21 +52,21 @@ func handleErr(tx *sql.Tx, err error) error {
 
 func (adao *AnimeDAO) insertNewAnimes(tx *sql.Tx, items []SheduleItem) error {
 	//prepare findByExternalStmt
-	findByExternalStmt, err := tx.Prepare("SELECT ID, EXTERNALID, RUSNAME, ENGNAME, IMAGEURL, NEXT_EPISODE_AT FROM ANIMES WHERE EXTERNALID = $1")
+	findByExternalStmt, err := tx.Prepare("SELECT ID, EXTERNALID, RUSNAME, ENGNAME, IMAGEURL, NEXT_EPISODE_AT, NEXT_EPISODE, NOTIFICATION_SENT FROM ANIMES WHERE EXTERNALID = $1")
 	if err != nil {
 		return err
 	}
 	defer findByExternalStmt.Close()
 
 	//prepare updateNextEpisodeAtStmt
-	updateNextEpisodeAtStmt, err := tx.Prepare("UPDATE ANIMES SET NEXT_EPISODE_AT = $2 WHERE ID = $1")
+	updateNextEpisodeAtStmt, err := tx.Prepare("UPDATE ANIMES SET NEXT_EPISODE_AT = $2, NEXT_EPISODE = $3, NOTIFICATION_SENT = false WHERE ID = $1")
 	if err != nil {
 		return err
 	}
 	defer updateNextEpisodeAtStmt.Close()
 
 	//prepare createStmt
-	createStmt, err := tx.Prepare("INSERT INTO ANIMES (EXTERNALID, RUSNAME, ENGNAME, IMAGEURL, NEXT_EPISODE_AT) VALUES($1, $2, $3, $4, $5)")
+	createStmt, err := tx.Prepare("INSERT INTO ANIMES (EXTERNALID, RUSNAME, ENGNAME, IMAGEURL, NEXT_EPISODE_AT, NEXT_EPISODE, NOTIFICATION_SENT) VALUES($1, $2, $3, $4, $5, $6, false)")
 	if err != nil {
 		return err
 	}
@@ -76,8 +78,10 @@ func (adao *AnimeDAO) insertNewAnimes(tx *sql.Tx, items []SheduleItem) error {
 			return findErr
 		}
 		if animeDTO != nil {
-			if updateErr := adao.updateNextEpisodeAt(updateNextEpisodeAtStmt, animeDTO.ID, sheduleItem.NextEpisodeAt.Time); updateErr != nil {
-				return updateErr
+			if animeDTO.NextEpizode < sheduleItem.NextEpisode {
+				if updateErr := adao.updateNextEpisodeAt(updateNextEpisodeAtStmt, animeDTO.ID, sheduleItem.NextEpisodeAt.Time, sheduleItem.NextEpisode); updateErr != nil {
+					return updateErr
+				}
 			}
 			continue
 		}
@@ -87,7 +91,7 @@ func (adao *AnimeDAO) insertNewAnimes(tx *sql.Tx, items []SheduleItem) error {
 			sheduleItem.Anime.Russian,
 			sheduleItem.Anime.Name,
 			sheduleItem.Anime.URL,
-			sheduleItem.NextEpisodeAt.Time); createErr != nil {
+			sheduleItem.NextEpisodeAt.Time, sheduleItem.NextEpisode); createErr != nil {
 			return createErr
 		}
 	}
@@ -132,7 +136,7 @@ func (adao *AnimeDAO) delete(stmt *sql.Stmt, id int64) error {
 }
 
 func (adao *AnimeDAO) allAnimes(tx *sql.Tx) ([]AnimeDTO, error) {
-	result, resErr := tx.Query("SELECT ID, EXTERNALID, RUSNAME, ENGNAME, IMAGEURL, NEXT_EPISODE_AT FROM ANIMES")
+	result, resErr := tx.Query("SELECT ID, EXTERNALID, RUSNAME, ENGNAME, IMAGEURL, NEXT_EPISODE_AT, NEXT_EPISODE, NOTIFICATION_SENT FROM ANIMES")
 	if resErr != nil {
 		return nil, resErr
 	}
@@ -148,8 +152,8 @@ func (adao *AnimeDAO) allAnimes(tx *sql.Tx) ([]AnimeDTO, error) {
 	return animeDTOs, nil
 }
 
-func (adao *AnimeDAO) updateNextEpisodeAt(stmt *sql.Stmt, id int64, newNextEpisodeAt time.Time) error {
-	_, err := stmt.Exec(id, newNextEpisodeAt)
+func (adao *AnimeDAO) updateNextEpisodeAt(stmt *sql.Stmt, id int64, newNextEpisodeAt time.Time, nextEpisode int64) error {
+	_, err := stmt.Exec(id, newNextEpisodeAt, nextEpisode)
 	if err != nil {
 		return err
 	}
@@ -162,8 +166,9 @@ func (adao *AnimeDAO) create(
 	rusName string,
 	engName string,
 	imageURL string,
-	nextEpisodeAt time.Time) error {
-	_, err := stmt.Exec(externalID, rusName, engName, imageURL, nextEpisodeAt)
+	nextEpisodeAt time.Time,
+	nextEpisode int64) error {
+	_, err := stmt.Exec(externalID, rusName, engName, imageURL, nextEpisodeAt, nextEpisode)
 	if err != nil {
 		return err
 	}
@@ -177,7 +182,9 @@ func (adao *AnimeDAO) scanAsAnime(result *sql.Rows) (*AnimeDTO, error) {
 	var engname *sql.NullString
 	var imageURL *sql.NullString
 	var nextEpisodeAt *PqTime
-	scanErr := result.Scan(&ID, &externalID, &rusname, &engname, &imageURL, &nextEpisodeAt)
+	var nextEpisode *sql.NullInt64
+	var notificationSent *sql.NullBool
+	scanErr := result.Scan(&ID, &externalID, &rusname, &engname, &imageURL, &nextEpisodeAt, &nextEpisode, &notificationSent)
 	if scanErr != nil {
 		return nil, scanErr
 	}
@@ -199,6 +206,12 @@ func (adao *AnimeDAO) scanAsAnime(result *sql.Rows) (*AnimeDTO, error) {
 	}
 	if nextEpisodeAt.Valid {
 		animeDTO.NextEpisodeAt = nextEpisodeAt.Time
+	}
+	if nextEpisode.Valid {
+		animeDTO.NextEpizode = nextEpisode.Int64
+	}
+	if notificationSent.Valid {
+		animeDTO.NotificationSent = notificationSent.Bool
 	}
 	return &animeDTO, nil
 }
@@ -230,11 +243,18 @@ type SubcriptionDTO struct {
 	animeID int64
 }
 
-//GetSubscriptions func
-func (sdao *SubscriptionDAO) GetSubscriptions() ([]AnimeDTO, []UserDTO, error) {
-	rows, err := sdao.Db.Query("SELECT A.ID, A.EXTERNALID, A.RUSNAME, A.ENGNAME, A.IMAGEURL, A.NEXT_EPISODE_AT, TU.ID, TU.TELEGRAM_USER_ID, TU.TELEGRAM_USERNAME FROM ANIMES A JOIN SUBSCRIPTIONS S ON (A.ID = S.ANIME_ID AND A.NEXT_EPISODE_AT <= $1) JOIN TELEGRAM_USERS TU ON (TU.ID = S.TELEGRAM_USER_ID)", time.Now())
+//GetSubscriptionsAndMarkAnimesAsNotified func
+func (sdao *SubscriptionDAO) GetSubscriptionsAndMarkAnimesAsNotified() ([]AnimeDTO, []UserDTO, error) {
+	tx, txErr := sdao.Db.Begin()
+	if txErr != nil {
+		return nil, nil, txErr
+	}
+	if _, execErr := tx.Exec("UPDATE ANIMES SET NOTIFICATION_SENT = true WHERE NEXT_EPISODE_AT <= $1", time.Now()); execErr != nil {
+		return nil, nil, handleErr(tx, execErr)
+	}
+	rows, err := tx.Query("SELECT A.ID, A.EXTERNALID, A.RUSNAME, A.ENGNAME, A.IMAGEURL, A.NEXT_EPISODE_AT, A.NEXT_EPISODE, A.NOTIFICATION_SENT, TU.ID, TU.TELEGRAM_USER_ID, TU.TELEGRAM_USERNAME FROM ANIMES A JOIN SUBSCRIPTIONS S ON (A.ID = S.ANIME_ID AND A.NEXT_EPISODE_AT <= $1) JOIN TELEGRAM_USERS TU ON (TU.ID = S.TELEGRAM_USER_ID)", time.Now())
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, handleErr(tx, err)
 	}
 	defer rows.Close()
 	animes := make([]AnimeDTO, 0, 50)
@@ -242,10 +262,13 @@ func (sdao *SubscriptionDAO) GetSubscriptions() ([]AnimeDTO, []UserDTO, error) {
 	for rows.Next() {
 		anime, user, err := sdao.scanAsAnimeAndUser(rows)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, handleErr(tx, err)
 		}
 		animes = append(animes, *anime)
 		users = append(users, *user)
+	}
+	if commitErr := tx.Commit(); commitErr != nil {
+		return nil, nil, handleErr(tx, commitErr)
 	}
 	return animes, users, nil
 }
@@ -258,11 +281,13 @@ func (sdao *SubscriptionDAO) scanAsAnimeAndUser(rows *sql.Rows) (*AnimeDTO, *Use
 	var engname *sql.NullString
 	var imageURL *sql.NullString
 	var nextEpisodeAt *PqTime
+	var nextEpisode *sql.NullInt64
+	var notificationSent *sql.NullBool
 	//user attributes
 	var userID *sql.NullInt64
 	var userExternalID *sql.NullString
 	var username *sql.NullString
-	scanErr := rows.Scan(&ID, &externalID, &rusname, &engname, &imageURL, &nextEpisodeAt, &userID, &userExternalID, &username)
+	scanErr := rows.Scan(&ID, &externalID, &rusname, &engname, &imageURL, &nextEpisodeAt, &nextEpisode, &notificationSent, &userID, &userExternalID, &username)
 	if scanErr != nil {
 		return nil, nil, scanErr
 	}
@@ -284,6 +309,12 @@ func (sdao *SubscriptionDAO) scanAsAnimeAndUser(rows *sql.Rows) (*AnimeDTO, *Use
 	}
 	if nextEpisodeAt.Valid {
 		animeDTO.NextEpisodeAt = nextEpisodeAt.Time
+	}
+	if nextEpisode.Valid {
+		animeDTO.NextEpizode = nextEpisode.Int64
+	}
+	if notificationSent.Valid {
+		animeDTO.NotificationSent = notificationSent.Bool
 	}
 	userDTO := UserDTO{}
 	if userID.Valid {
@@ -318,5 +349,6 @@ func (pt *PqTime) Scan(value interface{}) error {
 		return nil
 	}
 	pt.Time = value.(time.Time)
+	pt.Valid = true
 	return nil
 }
