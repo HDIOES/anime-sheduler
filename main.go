@@ -20,22 +20,23 @@ func main() {
 	container := dig.New()
 	container.Provide(func() *Settings {
 		if jsonFile, openErr := os.Open("settings.json"); openErr != nil {
-			panic(openErr)
+			log.Panicln(openErr)
 		} else {
 			defer jsonFile.Close()
 			decoder := json.NewDecoder(jsonFile)
 			settings := &Settings{}
 			if decodeErr := decoder.Decode(settings); decodeErr != nil {
-				panic(decodeErr)
+				log.Panicln(decodeErr)
 			} else {
 				return settings
 			}
 		}
+		panic("Unreachable code")
 	})
 	container.Provide(func(settings *Settings) (*sql.DB, *nats.Conn, *AnimeDAO, *SubscriptionDAO) {
 		db, err := sql.Open("postgres", settings.DatabaseURL)
 		if err != nil {
-			panic(err)
+			log.Panicln(err)
 		}
 		db.SetMaxIdleConns(settings.MaxIdleConnections)
 		db.SetMaxOpenConns(settings.MaxOpenConnections)
@@ -43,13 +44,13 @@ func main() {
 		timeoutDuration, durationErr := time.ParseDuration(timeout)
 		if durationErr != nil {
 			defer db.Close()
-			panic(durationErr)
+			log.Panicln(durationErr)
 		} else {
 			db.SetConnMaxLifetime(timeoutDuration)
 		}
 		natsConnection, ncErr := nats.Connect(settings.NatsURL)
 		if ncErr != nil {
-			panic(ncErr)
+			log.Panicln(ncErr)
 		}
 		return db, natsConnection, &AnimeDAO{Db: db}, &SubscriptionDAO{Db: db}
 	})
