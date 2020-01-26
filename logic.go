@@ -4,10 +4,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/nats-io/nats.go"
 )
@@ -24,7 +25,7 @@ type InitEventHandler struct {
 func (ieh *InitEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	animeDtos, userDtos, err := ieh.sdao.GetSubscriptionsAndMarkAnimesAsNotified()
 	if err != nil {
-		log.Println(err)
+		HandleError(err)
 		return
 	}
 	countOfNotifications := len(animeDtos)
@@ -32,7 +33,7 @@ func (ieh *InitEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for i := 0; i < countOfNotifications; i++ {
 		telegramID, parseErr := strconv.ParseInt(userDtos[i].ExternalID, 10, 64)
 		if parseErr != nil {
-			log.Println(parseErr)
+			HandleError(parseErr)
 			return
 		}
 		notification := Notification{
@@ -44,7 +45,7 @@ func (ieh *InitEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, notification := range notifications {
 		if sendNotificationErr := ieh.sendNotification(notification); sendNotificationErr != nil {
-			log.Println(sendNotificationErr)
+			HandleError(sendNotificationErr)
 			return
 		}
 	}
@@ -53,10 +54,10 @@ func (ieh *InitEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (ieh *InitEventHandler) sendNotification(notification Notification) error {
 	data, dataErr := json.Marshal(notification)
 	if dataErr != nil {
-		return dataErr
+		return errors.WithStack(dataErr)
 	}
 	if publishErr := ieh.natsConnection.Publish(ieh.settings.NatsSubject, data); publishErr != nil {
-		return publishErr
+		return errors.WithStack(publishErr)
 	}
 	return nil
 }
@@ -96,7 +97,7 @@ func (sts *ShikimoriTime) UnmarshalJSON(b []byte) (err error) {
 	s = s[1 : len(s)-1]
 	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	sts.Time = t
 	return nil
@@ -116,14 +117,14 @@ type UpdateSheduleHandler struct {
 
 func (ush *UpdateSheduleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if response, resErr := ush.client.Get(ush.settings.ShikimoriSheduleURL); resErr != nil {
-		log.Println(resErr)
+		HandleError(resErr)
 	} else {
 		sheduleItems := make([]SheduleItem, 0)
 		if decodeErr := json.NewDecoder(response.Body).Decode(&sheduleItems); decodeErr != nil {
-			log.Println(decodeErr)
+			HandleError(decodeErr)
 		} else {
 			if updateSheduleErr := ush.adao.UpdateAnimes(sheduleItems); updateSheduleErr != nil {
-				log.Println(updateSheduleErr)
+				HandleError(updateSheduleErr)
 			}
 		}
 	}

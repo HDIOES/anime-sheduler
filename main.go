@@ -10,6 +10,7 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
+	"github.com/pkg/errors"
 
 	"github.com/nats-io/nats.go"
 	"go.uber.org/dig"
@@ -84,4 +85,20 @@ type Settings struct {
 	NatsURL             string `json:"natsUrl"`
 	NatsSubject         string `json:"natsSubject"`
 	ShikimoriSheduleURL string `json:"shikimoriSheduleUrl"`
+}
+
+//StackTracer struct
+type StackTracer interface {
+	StackTrace() errors.StackTrace
+}
+
+//HandleError func
+func HandleError(handledErr error) {
+	if err, ok := handledErr.(StackTracer); ok {
+		for _, f := range err.StackTrace() {
+			log.Printf("%+s:%d\n", f, f)
+		}
+	} else {
+		log.Println("Unknown error: ", err)
+	}
 }

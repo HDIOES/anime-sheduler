@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"strconv"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 //AnimeDAO struct
@@ -27,7 +29,7 @@ type AnimeDTO struct {
 func (adao *AnimeDAO) UpdateAnimes(items []SheduleItem) error {
 	tx, txErr := adao.Db.Begin()
 	if txErr != nil {
-		return txErr
+		return errors.WithStack(txErr)
 	}
 	if insertNewAnimesErr := adao.insertNewAnimes(tx, items); insertNewAnimesErr != nil {
 		return handleErr(tx, insertNewAnimesErr)
@@ -44,7 +46,7 @@ func (adao *AnimeDAO) UpdateAnimes(items []SheduleItem) error {
 func handleErr(tx *sql.Tx, err error) error {
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return rollbackErr
+			return errors.WithStack(rollbackErr)
 		}
 	}
 	return err
@@ -54,21 +56,21 @@ func (adao *AnimeDAO) insertNewAnimes(tx *sql.Tx, items []SheduleItem) error {
 	//prepare findByExternalStmt
 	findByExternalStmt, err := tx.Prepare("SELECT ID, EXTERNALID, RUSNAME, ENGNAME, IMAGEURL, NEXT_EPISODE_AT, NEXT_EPISODE, NOTIFICATION_SENT FROM ANIMES WHERE EXTERNALID = $1")
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	defer findByExternalStmt.Close()
 
 	//prepare updateNextEpisodeAtStmt
 	updateNextEpisodeAtStmt, err := tx.Prepare("UPDATE ANIMES SET NEXT_EPISODE_AT = $2, NEXT_EPISODE = $3, NOTIFICATION_SENT = false WHERE ID = $1")
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	defer updateNextEpisodeAtStmt.Close()
 
 	//prepare createStmt
 	createStmt, err := tx.Prepare("INSERT INTO ANIMES (EXTERNALID, RUSNAME, ENGNAME, IMAGEURL, NEXT_EPISODE_AT, NEXT_EPISODE, NOTIFICATION_SENT) VALUES($1, $2, $3, $4, $5, $6, false)")
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	defer createStmt.Close()
 
@@ -102,7 +104,7 @@ func (adao *AnimeDAO) deleteOldAnimes(tx *sql.Tx, items []SheduleItem) error {
 	//prepare deleteStmt
 	deleteStmt, err := tx.Prepare("DELETE FROM ANIMES WHERE ID = $1")
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	defer deleteStmt.Close()
 
@@ -130,7 +132,7 @@ func (adao *AnimeDAO) deleteOldAnimes(tx *sql.Tx, items []SheduleItem) error {
 
 func (adao *AnimeDAO) delete(stmt *sql.Stmt, id int64) error {
 	if _, err := stmt.Exec(id); err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	return nil
 }
@@ -138,7 +140,7 @@ func (adao *AnimeDAO) delete(stmt *sql.Stmt, id int64) error {
 func (adao *AnimeDAO) allAnimes(tx *sql.Tx) ([]AnimeDTO, error) {
 	result, resErr := tx.Query("SELECT ID, EXTERNALID, RUSNAME, ENGNAME, IMAGEURL, NEXT_EPISODE_AT, NEXT_EPISODE, NOTIFICATION_SENT FROM ANIMES")
 	if resErr != nil {
-		return nil, resErr
+		return nil, errors.WithStack(resErr)
 	}
 	defer result.Close()
 	animeDTOs := make([]AnimeDTO, 0, 50)
@@ -155,7 +157,7 @@ func (adao *AnimeDAO) allAnimes(tx *sql.Tx) ([]AnimeDTO, error) {
 func (adao *AnimeDAO) updateNextEpisodeAt(stmt *sql.Stmt, id int64, newNextEpisodeAt time.Time, nextEpisode int64) error {
 	_, err := stmt.Exec(id, newNextEpisodeAt, nextEpisode)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	return nil
 }
@@ -170,7 +172,7 @@ func (adao *AnimeDAO) create(
 	nextEpisode int64) error {
 	_, err := stmt.Exec(externalID, rusName, engName, imageURL, nextEpisodeAt, nextEpisode)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	return nil
 }
@@ -186,7 +188,7 @@ func (adao *AnimeDAO) scanAsAnime(result *sql.Rows) (*AnimeDTO, error) {
 	var notificationSent *sql.NullBool
 	scanErr := result.Scan(&ID, &externalID, &rusname, &engname, &imageURL, &nextEpisodeAt, &nextEpisode, &notificationSent)
 	if scanErr != nil {
-		return nil, scanErr
+		return nil, errors.WithStack(scanErr)
 	}
 	animeDTO := AnimeDTO{}
 	if ID.Valid {
@@ -219,7 +221,7 @@ func (adao *AnimeDAO) scanAsAnime(result *sql.Rows) (*AnimeDTO, error) {
 func (adao *AnimeDAO) findByExternalID(stmt *sql.Stmt, externalID string) (*AnimeDTO, error) {
 	rows, err := stmt.Query(externalID)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	defer rows.Close()
 	if rows.Next() {
@@ -247,7 +249,7 @@ type SubcriptionDTO struct {
 func (sdao *SubscriptionDAO) GetSubscriptionsAndMarkAnimesAsNotified() ([]AnimeDTO, []UserDTO, error) {
 	tx, txErr := sdao.Db.Begin()
 	if txErr != nil {
-		return nil, nil, txErr
+		return nil, nil, errors.WithStack(txErr)
 	}
 	if _, execErr := tx.Exec("UPDATE ANIMES SET NOTIFICATION_SENT = true WHERE NEXT_EPISODE_AT <= $1", time.Now()); execErr != nil {
 		return nil, nil, handleErr(tx, execErr)
@@ -289,7 +291,7 @@ func (sdao *SubscriptionDAO) scanAsAnimeAndUser(rows *sql.Rows) (*AnimeDTO, *Use
 	var username *sql.NullString
 	scanErr := rows.Scan(&ID, &externalID, &rusname, &engname, &imageURL, &nextEpisodeAt, &nextEpisode, &notificationSent, &userID, &userExternalID, &username)
 	if scanErr != nil {
-		return nil, nil, scanErr
+		return nil, nil, errors.WithStack(scanErr)
 	}
 	animeDTO := AnimeDTO{}
 	if ID.Valid {
