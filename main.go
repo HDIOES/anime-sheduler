@@ -72,7 +72,7 @@ func main() {
 			settings:       settings,
 			natsConnection: natsConnection,
 		})
-		log.Fatal(http.ListenAndServe(":8002", mux))
+		log.Fatal(http.ListenAndServe(":"+strconv.Itoa(settings.ApplicationPort), mux))
 	})
 }
 

@@ -3,7 +3,7 @@
     "maxOpenConnections": 15,
     "maxIdleConnections": 5,
     "connectionTimeout": 60,
-    "port": 8000,
+    "port": 8002,
     "natsUrl": "nats://127.0.0.1:4222",
     "natsSubject": "notifications",
     "shikimoriSheduleUrl": "https://shikimori.one/api/calendar"
