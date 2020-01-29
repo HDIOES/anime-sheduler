@@ -4,6 +4,7 @@
 *.dll
 *.so
 *.dylib
+anime-sheduler
 
 # Test binary, built with `go test -c`
 *.test
