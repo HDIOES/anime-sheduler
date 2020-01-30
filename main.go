@@ -16,6 +16,17 @@ import (
 	"go.uber.org/dig"
 )
 
+const (
+	databaseURLEnvName               = "DATABASE_URL"
+	maxOpenConnectionsEnvName        = "MAX_OPEN_CONNECTIONS"
+	maxIdleConnectionsEnvName        = "MAX_IDLE_CONNECTIONS"
+	databaseConnectionTimeoutEnvName = "DATABASE_CONNECTION_TIMEOUT"
+	applicationPortEnvName           = "PORT"
+	natsURLEnvName                   = "NATS_URL"
+	natsSubjectEnvName               = "NATS_SUBJECT"
+	shikimoriSheduleURLEnvName       = "SHIKIMORI_SHEDULE_URL"
+)
+
 func main() {
 	container := dig.New()
 	container.Provide(func() *Settings {
@@ -28,6 +39,7 @@ func main() {
 			if decodeErr := decoder.Decode(settings); decodeErr != nil {
 				log.Panicln(decodeErr)
 			} else {
+				setSettingsFromEnv(settings)
 				return settings
 			}
 		}
@@ -101,5 +113,48 @@ func HandleError(handledErr error) {
 		}
 	} else {
 		log.Println("Unknown error: ", err)
+	}
+}
+
+func setSettingsFromEnv(settings *Settings) {
+	if value := os.Getenv(databaseURLEnvName); value != "" {
+		settings.DatabaseURL = value
+	}
+	if value := os.Getenv(maxOpenConnectionsEnvName); value != "" {
+		if intValue, err := strconv.Atoi(value); err != nil {
+			log.Panicln(err)
+		} else {
+			settings.MaxOpenConnections = intValue
+		}
+	}
+	if value := os.Getenv(maxIdleConnectionsEnvName); value != "" {
+		if intValue, err := strconv.Atoi(value); err != nil {
+			log.Panicln(err)
+		} else {
+			settings.MaxIdleConnections = intValue
+		}
+	}
+	if value := os.Getenv(databaseConnectionTimeoutEnvName); value != "" {
+		if intValue, err := strconv.Atoi(value); err != nil {
+			log.Panicln(err)
+		} else {
+			settings.ConnectionTimeout = intValue
+		}
+	}
+	if value := os.Getenv(applicationPortEnvName); value != "" {
+		if intValue, err := strconv.Atoi(value); err != nil {
+			log.Panicln(err)
+		} else {
+			settings.ApplicationPort = intValue
+		}
+	}
+	if value := os.Getenv(natsURLEnvName); value != "" {
+		settings.NatsURL = value
+	}
+	if value := os.Getenv(natsSubjectEnvName); value != "" {
+		settings.NatsSubject = value
+	}
+	if value := os.Getenv(shikimoriSheduleURLEnvName); value != "" {
+		settings.ShikimoriSheduleURL = value
 	}
 }
