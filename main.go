@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"encoding/json"
 	"log"
@@ -74,10 +75,15 @@ func main() {
 		sdao := SubscriptionDAO{
 			Db: db,
 		}
+		transport := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
 		mux.Handle("/updateShedule", &UpdateSheduleHandler{
 			adao:     &adao,
 			settings: settings,
-			client:   &http.Client{},
+			client: &http.Client{
+				Transport: transport,
+			},
 		})
 		mux.Handle("/initEvent", &InitEventHandler{
 			sdao:           &sdao,

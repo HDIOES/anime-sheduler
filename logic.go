@@ -117,7 +117,7 @@ type UpdateSheduleHandler struct {
 
 func (ush *UpdateSheduleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if response, resErr := ush.client.Get(ush.settings.ShikimoriSheduleURL); resErr != nil {
-		HandleError(resErr)
+		HandleError(errors.WithStack(resErr))
 	} else {
 		sheduleItems := make([]SheduleItem, 0)
 		if decodeErr := json.NewDecoder(response.Body).Decode(&sheduleItems); decodeErr != nil {
