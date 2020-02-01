@@ -245,9 +245,6 @@ func (sdao *SubscriptionDAO) GetSubscriptionsAndMarkAnimesAsNotified() ([]AnimeD
 	if txErr != nil {
 		return nil, nil, errors.WithStack(txErr)
 	}
-	if _, execErr := tx.Exec("UPDATE ANIMES SET NOTIFICATION_SENT = true WHERE NEXT_EPISODE_AT <= $1", time.Now()); execErr != nil {
-		return nil, nil, handleErr(tx, execErr)
-	}
 	rows, err := tx.Query("SELECT A.ID, A.EXTERNALID, A.RUSNAME, A.ENGNAME, A.IMAGEURL, A.NEXT_EPISODE_AT, A.NOTIFICATION_SENT, TU.ID, TU.TELEGRAM_USER_ID, TU.TELEGRAM_USERNAME FROM ANIMES A JOIN SUBSCRIPTIONS S ON (A.ID = S.ANIME_ID AND A.NEXT_EPISODE_AT <= $1 AND A.NOTIFICATION_SENT = false) JOIN TELEGRAM_USERS TU ON (TU.ID = S.TELEGRAM_USER_ID)", time.Now())
 	if err != nil {
 		return nil, nil, handleErr(tx, err)
@@ -263,6 +260,9 @@ func (sdao *SubscriptionDAO) GetSubscriptionsAndMarkAnimesAsNotified() ([]AnimeD
 		animes = append(animes, *anime)
 		users = append(users, *user)
 	}
+	if _, execErr := tx.Exec("UPDATE ANIMES SET NOTIFICATION_SENT = true WHERE NEXT_EPISODE_AT <= $1", time.Now()); execErr != nil {
+		return nil, nil, handleErr(tx, execErr)
+	}
 	if commitErr := tx.Commit(); commitErr != nil {
 		return nil, nil, handleErr(tx, commitErr)
 	}
@@ -277,13 +277,12 @@ func (sdao *SubscriptionDAO) scanAsAnimeAndUser(rows *sql.Rows) (*AnimeDTO, *Use
 	var engname *sql.NullString
 	var imageURL *sql.NullString
 	var nextEpisodeAt *PqTime
-	var nextEpisode *sql.NullInt64
 	var notificationSent *sql.NullBool
 	//user attributes
 	var userID *sql.NullInt64
 	var userExternalID *sql.NullString
 	var username *sql.NullString
-	scanErr := rows.Scan(&ID, &externalID, &rusname, &engname, &imageURL, &nextEpisodeAt, &nextEpisode, &notificationSent, &userID, &userExternalID, &username)
+	scanErr := rows.Scan(&ID, &externalID, &rusname, &engname, &imageURL, &nextEpisodeAt, &notificationSent, &userID, &userExternalID, &username)
 	if scanErr != nil {
 		return nil, nil, errors.WithStack(scanErr)
 	}
