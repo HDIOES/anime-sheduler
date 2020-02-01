@@ -23,6 +23,7 @@ func (hg *HTTPGateway) Get(resourceURL string) (int, io.Reader, error) {
 	if err != nil {
 		return 0, nil, errors.WithStack(err)
 	}
+	defer response.Body.Close()
 	request, err := http.NewRequest("GET", resourceURL, nil)
 	if err != nil {
 		return 0, nil, errors.WithStack(err)
