@@ -110,17 +110,20 @@ func (sts *ShikimoriTime) toDateValue() *string {
 
 //UpdateSheduleHandler struct
 type UpdateSheduleHandler struct {
-	settings *Settings
-	adao     *AnimeDAO
-	client   *http.Client
+	settings    *Settings
+	adao        *AnimeDAO
+	HTTPGateway *HTTPGateway
 }
 
 func (ush *UpdateSheduleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if response, resErr := ush.client.Get(ush.settings.ShikimoriSheduleURL); resErr != nil {
+	if httpStatus, resReader, resErr := ush.HTTPGateway.Get(ush.settings.ShikimoriSheduleURL); resErr != nil {
 		HandleError(errors.WithStack(resErr))
 	} else {
-		sheduleItems := make([]SheduleItem, 0)
-		if decodeErr := json.NewDecoder(response.Body).Decode(&sheduleItems); decodeErr != nil {
+		if httpStatus != 200 {
+			HandleError(errors.New("Http status not equals 200"))
+		}
+		sheduleItems := []SheduleItem{}
+		if decodeErr := json.NewDecoder(resReader).Decode(&sheduleItems); decodeErr != nil {
 			HandleError(decodeErr)
 		} else {
 			if updateSheduleErr := ush.adao.UpdateAnimes(sheduleItems); updateSheduleErr != nil {

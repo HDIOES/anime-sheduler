@@ -75,14 +75,15 @@ func main() {
 		sdao := SubscriptionDAO{
 			Db: db,
 		}
-		transport := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
 		mux.Handle("/updateShedule", &UpdateSheduleHandler{
 			adao:     &adao,
 			settings: settings,
-			client: &http.Client{
-				Transport: transport,
+			HTTPGateway: &HTTPGateway{
+				Client: &http.Client{
+					Transport: &http.Transport{
+						TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+					},
+				},
 			},
 		})
 		mux.Handle("/initEvent", &InitEventHandler{
