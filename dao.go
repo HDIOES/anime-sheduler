@@ -74,26 +74,28 @@ func (adao *AnimeDAO) insertNewAnimes(tx *sql.Tx, items []SheduleItem) error {
 	defer createStmt.Close()
 
 	for _, sheduleItem := range items {
-		animeDTO, findErr := adao.findByExternalID(findByExternalStmt, strconv.FormatInt(sheduleItem.Anime.ID, 10))
-		if findErr != nil {
-			return findErr
-		}
-		if animeDTO != nil {
-			if animeDTO.NextEpisodeAt.Before(sheduleItem.NextEpisodeAt.Time) {
-				if updateErr := adao.updateNextEpisodeAt(updateNextEpisodeAtStmt, animeDTO.ID, sheduleItem.NextEpisodeAt.Time); updateErr != nil {
-					return updateErr
-				}
+		if sheduleItem.NextEpisodeAt != nil {
+			animeDTO, findErr := adao.findByExternalID(findByExternalStmt, strconv.FormatInt(sheduleItem.Anime.ID, 10))
+			if findErr != nil {
+				return findErr
 			}
-			continue
-		}
-		//insert new anime
-		if createErr := adao.create(createStmt,
-			strconv.FormatInt(sheduleItem.Anime.ID, 10),
-			sheduleItem.Anime.Russian,
-			sheduleItem.Anime.Name,
-			sheduleItem.Anime.URL,
-			sheduleItem.NextEpisodeAt.Time); createErr != nil {
-			return createErr
+			if animeDTO != nil {
+				if animeDTO.NextEpisodeAt.Before(sheduleItem.NextEpisodeAt.Time) {
+					if updateErr := adao.updateNextEpisodeAt(updateNextEpisodeAtStmt, animeDTO.ID, sheduleItem.NextEpisodeAt.Time); updateErr != nil {
+						return updateErr
+					}
+				}
+				continue
+			}
+			//insert new anime
+			if createErr := adao.create(createStmt,
+				strconv.FormatInt(sheduleItem.Anime.ID, 10),
+				sheduleItem.Anime.Russian,
+				sheduleItem.Anime.Name,
+				sheduleItem.Anime.URL,
+				sheduleItem.NextEpisodeAt.Time); createErr != nil {
+				return createErr
+			}
 		}
 	}
 	return nil

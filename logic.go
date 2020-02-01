@@ -64,9 +64,8 @@ func (ieh *InitEventHandler) sendNotification(notification Notification) error {
 
 //SheduleItem struct
 type SheduleItem struct {
-	NextEpisode   int64         `json:"next_episode"`
-	NextEpisodeAt ShikimoriTime `json:"next_episode_at"`
-	Anime         Anime         `json:"anime"`
+	NextEpisodeAt *ShikimoriTime `json:"next_episode_at"`
+	Anime         Anime          `json:"anime"`
 }
 
 //Anime struct
