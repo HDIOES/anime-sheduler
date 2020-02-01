@@ -80,10 +80,8 @@ func (adao *AnimeDAO) insertNewAnimes(tx *sql.Tx, items []SheduleItem) error {
 				return findErr
 			}
 			if animeDTO != nil {
-				if animeDTO.NextEpisodeAt.Before(sheduleItem.NextEpisodeAt.Time) {
-					if updateErr := adao.updateNextEpisodeAt(updateNextEpisodeAtStmt, animeDTO.ID, sheduleItem.NextEpisodeAt.Time); updateErr != nil {
-						return updateErr
-					}
+				if updateErr := adao.updateNextEpisodeAt(updateNextEpisodeAtStmt, animeDTO.ID, sheduleItem.NextEpisodeAt.Time); updateErr != nil {
+					return updateErr
 				}
 				continue
 			}
