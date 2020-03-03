@@ -39,7 +39,7 @@ func (ieh *InitEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		notification := Notification{
 			TelegramID: telegramID,
 			Type:       "defaultCommand",
-			Text:       fmt.Sprintf("Аниме под названием %s вышло сейчас в эфир. Не пропустите!", animeDtos[i].EngName),
+			Text:       fmt.Sprintf("%s. Новый эпизод вышёл в эфир. Не пропустите!", animeDtos[i].EngName),
 		}
 		notifications = append(notifications, notification)
 	}
