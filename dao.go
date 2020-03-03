@@ -98,7 +98,7 @@ func (adao *AnimeDAO) insertNewAnimes(tx *sql.Tx, items []SheduleItem) error {
 				strconv.FormatInt(sheduleItem.Anime.ID, 10),
 				sheduleItem.Anime.Russian,
 				sheduleItem.Anime.Name,
-				sheduleItem.Anime.URL,
+				sheduleItem.Anime.Image.Original,
 				sheduleItem.NextEpisodeAt.Time); createErr != nil {
 				return createErr
 			}
