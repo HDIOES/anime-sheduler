@@ -13,6 +13,8 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
+const notificationType = "notificationType"
+
 //InitEventHandler struct
 type InitEventHandler struct {
 	db             *sql.DB
@@ -34,16 +36,16 @@ func (ieh *InitEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	countOfNotifications := len(animeDtos)
-	notifications := make([]Notification, 0, countOfNotifications)
+	notifications := make([]TelegramCommandMessage, 0, countOfNotifications)
 	for i := 0; i < countOfNotifications; i++ {
 		telegramID, parseErr := strconv.ParseInt(userDtos[i].ExternalID, 10, 64)
 		if parseErr != nil {
 			HandleError(parseErr)
 			return
 		}
-		notification := Notification{
+		notification := TelegramCommandMessage{
 			TelegramID: telegramID,
-			Type:       "defaultCommand",
+			Type:       notificationType,
 			Text:       fmt.Sprintf("%s. Новый эпизод вышёл в эфир. Не пропустите!", animeDtos[i].EngName),
 		}
 		notifications = append(notifications, notification)
@@ -56,7 +58,7 @@ func (ieh *InitEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (ieh *InitEventHandler) sendNotification(notification Notification) error {
+func (ieh *InitEventHandler) sendNotification(notification TelegramCommandMessage) error {
 	data, dataErr := json.Marshal(notification)
 	if dataErr != nil {
 		return errors.WithStack(dataErr)
@@ -142,9 +144,10 @@ func (ush *UpdateSheduleHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-//Notification struct
-type Notification struct {
+//TelegramCommandMessage struct
+type TelegramCommandMessage struct {
+	Type string `json:"type"`
+	//fields for notification and /start
 	TelegramID int64  `json:"telegramId"`
-	Type       string `json:"type"`
 	Text       string `json:"text"`
 }
