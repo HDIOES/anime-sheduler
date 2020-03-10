@@ -23,6 +23,11 @@ type InitEventHandler struct {
 }
 
 func (ieh *InitEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	logReqErr := logRequest(r)
+	if logReqErr != nil {
+		HandleError(logReqErr)
+		return
+	}
 	animeDtos, userDtos, err := ieh.sdao.GetSubscriptionsAndMarkAnimesAsNotified()
 	if err != nil {
 		HandleError(err)
@@ -115,6 +120,11 @@ type UpdateSheduleHandler struct {
 }
 
 func (ush *UpdateSheduleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	logReqErr := logRequest(r)
+	if logReqErr != nil {
+		HandleError(logReqErr)
+		return
+	}
 	if httpStatus, resReader, resErr := ush.HTTPGateway.Get(ush.settings.ShikimoriSheduleURL); resErr != nil {
 		HandleError(errors.WithStack(resErr))
 	} else {
